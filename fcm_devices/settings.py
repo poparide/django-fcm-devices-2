@@ -23,6 +23,9 @@ DEFAULTS = {
     # so maybe just want to do that instead (pass in FCM credentials from our own project settings)
     # Loaded in Credentials and sent off to backend.
     "GOOGLE_SERVICE_ACCOUNT_INFO": None,
+     # this is redundant, as it can be inferred from credentials/account info,
+     # but alas is a required param for PyFCM at the moment
+    "GOOGLE_PROJECT_ID": None,
 
     # allow customisation of how messages are actually sent
     "BACKEND_CLASS": None,

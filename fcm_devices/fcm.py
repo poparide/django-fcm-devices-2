@@ -23,7 +23,14 @@ class FCMBackend(object):
         # PyFCM supports loading from service file directly, OR passing in credentials.
         # unfortunately we can't pass in the info to be loaded there, so for now
         # I'm just adding the oauth client to this lib, loading the creds, then passing them in.
-        push_service = FCMNotification(credentials=credentials)
+        push_service = FCMNotification(
+            # Annoyingly service_account_file and project_id are positional args, when really PyFCM should
+            # be checking for the existence of credentials first. Project ID can be inferred from credentials.
+            # but for now we'll just pass it as its own setting. TODO create PyFCM issue/PR to fix
+            service_account_file=None,
+            project_id=app_settings.GOOGLE_PROJECT_ID,
+            credentials=credentials
+        )
         result = push_service.notify(
             fcm_token=device.token,
             **kwargs,
