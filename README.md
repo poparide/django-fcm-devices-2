@@ -105,7 +105,7 @@ from pyfcm import FCMNotification
 from fcm_devices.models import Device
 from fcm_devices.settings import app_settings
 from google.oauth2 import service_account
-push_service = FCMNotification(credentials=service_account.from_service_account_info(app_settings.GOOGLE_SERVICE_ACCOUNT_INFO))
+push_service = FCMNotification(credentials=service_account.Credentials.from_service_account_info(app_settings.GOOGLE_SERVICE_ACCOUNT_INFO))
 data_payload = {
     "foo": "bar",
     "body": "great match!",
