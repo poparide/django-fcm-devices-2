@@ -19,8 +19,9 @@ install_requires = [
     # (1.4.0) so for now we'll assume we're safe within a minor version - and both 1.4.x
     # and 1.5.x currently look good.
     # https://github.com/olucurious/PyFCM/issues/285
-    "pyfcm>=1.4,<1.6",
+    "pyfcm>=2.0.1,<=2.1",
     "django-konst>=2,<3",
+    "google-auth==2.22.0", # for loading credentials.
 ]
 
 tests_require = [

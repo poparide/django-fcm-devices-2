@@ -5,6 +5,7 @@ from pyfcm import FCMNotification
 
 from .settings import app_settings
 from .signals import device_updated
+from google.oauth2 import service_account
 
 
 # categorise common errors in terms of what we"ll do
@@ -18,9 +19,13 @@ class FCMBackend(object):
     """You can override this class to customise sending of notifications."""
 
     def send_notification(self, device, **kwargs):
-        push_service = FCMNotification(api_key=app_settings.API_KEY)
-        result = push_service.notify_single_device(
-            registration_id=device.token,
+        credentials = service_account.from_service_account_info(app_settings.GOOGLE_SERVICE_ACCOUNT_INFO)
+        # PyFCM supports loading from service file directly, OR passing in credentials.
+        # unfortunately we can't pass in the info to be loaded there, so for now
+        # I'm just adding the oauth client to this lib, loading the creds, then passing them in.
+        push_service = FCMNotification(credentials=credentials)
+        result = push_service.notify(
+            fcm_token=device.token,
             **kwargs,
         )
         self.update_device_on_error(device, result)

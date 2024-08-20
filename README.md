@@ -29,13 +29,13 @@ pip install django-fcm-devices
 
 ### Configure ###
 
-You need to configure your FCM API key by adding to your settings:
+You need to configure your FCM service account info by adding to your settings:
 
-- `FCM_DEVICES_API_KEY` your FCM API key.
+- `FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO` your service account info, from which credentials are loaded.
 
 You can optionally subclass the `FCMBackend` to add your own behaviour using the following setting and dot notation:
 
-- `FCM_DEVICES_BACKEND_CLASS` 
+- `FCM_DEVICES_BACKEND_CLASS`
 
 
 ### Use ###
@@ -104,28 +104,21 @@ from pyfcm import FCMNotification
 
 from fcm_devices.models import Device
 from fcm_devices.settings import app_settings
-
-push_service = FCMNotification(api_key=app_settings.API_KEY)
-data_message = {
-    "Nick": "Mario",
+from google.oauth2 import service_account
+push_service = FCMNotification(credentials=service_account.from_service_account_info(app_settings.GOOGLE_SERVICE_ACCOUNT_INFO))
+data_payload = {
+    "foo": "bar",
     "body": "great match!",
     "Room": "PortugalVSDenmark"
 }
 
 device = Device.objects.get(user_id=123)  # get the device for the user you want to message
 
-# To multiple devices
-result = push_service.notify_multiple_devices(
-    registration_ids=[device.token],
-    message_body="Hullo there",
-    data_message=data_message
-)
-
 # To a single device
-result = push_service.notify_single_device(
-    registration_id=device.token,
-    message_body="Hullo there",
-    data_message=data_message
+result = push_service.notify(
+    fcm_token=device.token,
+    notification_body="Hullo there",
+    data_payload=data_payload
 )
 ```
 
