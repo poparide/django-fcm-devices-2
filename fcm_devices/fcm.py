@@ -19,7 +19,10 @@ class FCMBackend(object):
     """You can override this class to customise sending of notifications."""
 
     def send_notification(self, device, **kwargs):
-        credentials = service_account.Credentials.from_service_account_info(app_settings.GOOGLE_SERVICE_ACCOUNT_INFO)
+        credentials = service_account.Credentials.from_service_account_info(
+            app_settings.GOOGLE_SERVICE_ACCOUNT_INFO,
+            scopes=["https://www.googleapis.com/auth/firebase.messaging"]
+        )
         # PyFCM supports loading from service file directly, OR passing in credentials.
         # unfortunately we can't pass in the info to be loaded there, so for now
         # I'm just adding the oauth client to this lib, loading the creds, then passing them in.
