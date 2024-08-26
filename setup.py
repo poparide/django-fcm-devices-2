@@ -14,12 +14,7 @@ with open("README.md", "r") as fh:
 
 install_requires = [
     "django>=3,<4",
-    # Todo: determine the versioning strategy PyFCM is using and adjust this if necessary.
-    # The last backward incompatible change seems to have been made in a minor version
-    # (1.4.0) so for now we'll assume we're safe within a minor version - and both 1.4.x
-    # and 1.5.x currently look good.
-    # https://github.com/olucurious/PyFCM/issues/285
-    "pyfcm>=2.0.1,<=2.1",
+    "pyfcm=2.0.1",
     "django-konst>=2,<3",
     "google-auth==2.22.0", # for loading credentials.
 ]
