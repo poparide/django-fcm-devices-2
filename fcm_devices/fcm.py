@@ -68,8 +68,7 @@ class ConsoleFCMBackend(FCMBackend):
 
     def send_notification(self, device, **kwargs):
         print(f"Push to {device}\nPyFCM kwargs: {kwargs}\n")
-        # this is a partial response, but the part our sending code will be looking for
-        return {"success": 1, "failure": 0}
+        return {"name": "my/message/resource/:foobarbaz123"}
 
 
 def get_fcm_backend():
