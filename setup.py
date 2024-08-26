@@ -14,7 +14,7 @@ with open("README.md", "r") as fh:
 
 install_requires = [
     "django>=3,<4",
-    "pyfcm==2.0.1",
+    "pyfcm==2.0.6",
     "django-konst>=2,<3",
     "google-auth==2.22.0", # for loading credentials.
 ]
