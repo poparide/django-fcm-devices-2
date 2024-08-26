@@ -2,17 +2,11 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
 from pyfcm import FCMNotification
+from pyfcm.errors import FCMNotRegisteredError, FCMServerError
 
 from .settings import app_settings
 from .signals import device_updated
 from google.oauth2 import service_account
-
-
-# categorise common errors in terms of what we"ll do
-unrecoverable_errors = set(
-    ["MissingRegistration", "InvalidRegistration", "NotRegistered"]
-)
-configuration_errors = set(["MismatchSenderId"])
 
 
 class FCMBackend(object):
@@ -34,30 +28,39 @@ class FCMBackend(object):
             project_id=app_settings.GOOGLE_PROJECT_ID,
             credentials=credentials
         )
-        result = push_service.notify(
-            fcm_token=device.token,
-            **kwargs,
-        )
-        self.update_device_on_error(device, result)
+        # NOTE: In PyFCM 2.x, the response from `notify` is simply a dictionary with one field, 'name',
+        # which is the identifier of the message sent, in the format of projects/*/messages/{message_id}.
+        # Errors are raised and there is no longer a 'failure' key in the response to parse.
+        result = None
+        try:
+            result = push_service.notify(
+                fcm_token=device.token,
+                **kwargs,
+            )
+
+        # missing, unregistered, and invalid. see
+        # https://firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
+        except FCMNotRegisteredError as e:
+            self.update_device_on_registration_error(device)
+
+        # this is a bit janky, PyFCM should be able to parse the 403 specifically.
+        except FCMServerError as e:
+            if "Unexpected status code 403" in str(e):
+                raise ImproperlyConfigured(
+                    f"FCM configuration problem sending to device {device.id}"
+                )
+            raise e
+
         return result
 
-    def update_device_on_error(self, device, result):
+    def update_device_on_registration_error(self, device):
         """
         If a device fails to be sent a notification due to an unrecoverable
         issue we want to ensure we don't try again.
-
-        See `unrecoverable_errors` for which we act upon.
         """
-        if result["failure"] > 0:
-            if result["results"][0]["error"] in unrecoverable_errors:
-                device.active = False
-                device.save(update_fields=("active", "updated_at"))
-                device_updated.send(sender=device.__class__, device=device)
-            elif result["results"][0]["error"] in configuration_errors:
-                raise ImproperlyConfigured(
-                    f"FCM configuration problem sending to device {device.id}: "
-                    f"{result['results'][0]['error']}"
-                )
+        device.active = False
+        device.save(update_fields=("active", "updated_at"))
+        device_updated.send(sender=device.__class__, device=device)
 
 
 class ConsoleFCMBackend(FCMBackend):
