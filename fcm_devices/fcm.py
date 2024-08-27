@@ -17,18 +17,23 @@ class FCMBackend(object):
             app_settings.GOOGLE_SERVICE_ACCOUNT_INFO,
             scopes=["https://www.googleapis.com/auth/firebase.messaging"]
         )
+        project_id = getattr(credentials, 'project_id', None)
+        if not project_id:
+            raise ImproperlyConfigured(
+                "GOOGLE_SERVICE_ACCOUNT_INFO must specify a project_id."
+            )
         # PyFCM supports loading from service file directly, OR passing in credentials.
         # unfortunately we can't pass in the info to be loaded there, so for now
         # I'm just adding the oauth client to this lib, loading the creds, then passing them in.
         push_service = FCMNotification(
-            # Annoyingly service_account_file and project_id are positional args, when really PyFCM should
-            # be checking for the existence of credentials first. Project ID can be inferred from credentials.
-            # but for now we'll just pass it as its own setting. TODO create PyFCM issue/PR to fix
+            # Annoyingly service_account_file and project_id are positional args,
+            # when really PyFCM should be checking for the existence of credentials first.
+            # See https://github.com/olucurious/PyFCM/issues/357
             service_account_file=None,
-            project_id=app_settings.GOOGLE_PROJECT_ID,
+            project_id=project_id,
             credentials=credentials
         )
-        # NOTE: In PyFCM 2.x, the response from `notify` is simply a dictionary with one field, 'name',
+        # NOTE: In the firebase messaging V1 API (and thus PyFCM 2.x), the API response is simply a dictionary with one field, 'name',
         # which is the identifier of the message sent, in the format of projects/*/messages/{message_id}.
         # Errors are raised and there is no longer a 'failure' key in the response to parse.
         result = None

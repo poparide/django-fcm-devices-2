@@ -123,4 +123,4 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 
-DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO = {"foo": "bar"}
+DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO = {"project_id": "foobarbaz123"}
