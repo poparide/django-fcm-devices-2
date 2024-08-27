@@ -43,11 +43,14 @@ class FCMBackend(object):
         except FCMNotRegisteredError as e:
             self.update_device_on_registration_error(device)
 
-        # this is a bit janky, PyFCM should be able to parse the 403 specifically.
+        # SENDER_ID_MISMATCH - PyFCM should be able to parse the 403 specifically.
+        # See https://github.com/olucurious/PyFCM/pull/358
         except FCMServerError as e:
             if "Unexpected status code 403" in str(e):
+                self.update_device_on_registration_error(device)
                 raise ImproperlyConfigured(
-                    f"FCM configuration problem sending to device {device.id}"
+                    "The authenticated sender ID is different from the sender ID"
+                    " of the registration token."
                 )
             raise e
 
