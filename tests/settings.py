@@ -57,4 +57,4 @@ TEMPLATES = [
 ]
 SECRET_KEY = "fcm-devices-secret-key"
 
-FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO = {"foo": "bar"}
+FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO = {"project_id": "foobarbaz123"}
