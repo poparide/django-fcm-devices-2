@@ -136,7 +136,7 @@ def test_send_notification(api_client):
     )
     device = baker.make("fcm_devices.Device", active=True)
     response = service.send_notification(
-        device, message_title="Test title", message_body="Test content"
+        device, notification_title="Test title", notification_body="Test content"
     )
     assert response == success_response
     device.refresh_from_db()
@@ -162,7 +162,7 @@ def test_send_notification_invalid_device(api_client, mocker):
         "fcm_devices.service.signals.device_updated.send"
     )
     response = service.send_notification(
-        device, message_title="Test title", message_body="Test content"
+        device, notification_title="Test title", notification_body="Test content"
     )
     assert response == unrecoverable_error_response
     device.refresh_from_db()
@@ -190,7 +190,7 @@ def test_send_notification_config_error(api_client, mocker):
     )
     with pytest.raises(ImproperlyConfigured) as e:
         service.send_notification(
-            device, message_title="Test title", message_body="Test content"
+            device, notification_title="Test title", notification_body="Test content"
         )
 
     assert e.value.args[0] == (
@@ -212,14 +212,14 @@ def test_send_notification_to_user_has_multiple_devices(mocker):
     baker.make("fcm_devices.Device", user=user, active=False)
     mocked_send_notification = mocker.patch("fcm_devices.service.send_notification")
     service.send_notification_to_user(
-        user, message_title="Test title", message_body="Test content"
+        user, notification_title="Test title", notification_body="Test content"
     )
     assert mocked_send_notification.call_count == 2
     mocked_send_notification.assert_any_call(
-        active_device, message_body="Test content", message_title="Test title"
+        active_device, notification_body="Test content", notification_title="Test title"
     )
     mocked_send_notification.assert_any_call(
-        second_active_device, message_body="Test content", message_title="Test title"
+        second_active_device, notification_body="Test content", notification_title="Test title"
     )
 
 

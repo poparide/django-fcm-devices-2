@@ -89,10 +89,10 @@ from fcm_devices.service import send_notification, send_notification_to_user
 
 device = Device.objects.get(user_id=123)  # get the device for the user you want to message
 
-send_notification(device, message_title="An important push", message_body="Oh dear ..")
+send_notification(device, notification_title="An important push", notification_body="Oh dear ..")
 
 # or send it straight to all the user's devices
-send_notification_to_user(User.objects.get(id=123), message_title="An important push", message_body="Oh dear ..")
+send_notification_to_user(User.objects.get(id=123), notification_title="An important push", notification_body="Oh dear ..")
 ```
 
 These functions have the added bonus of processing sending errors and deactivating devices, so they should generally be used. As kwargs, they take anything that PyFCM supports and are essentially passed through.
