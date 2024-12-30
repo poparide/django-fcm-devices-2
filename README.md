@@ -133,12 +133,13 @@ Follow the [directions to set up your shell environment for pyenv](https://githu
 Then:
 
 ```
-pyenv install -s 3.8.1
+pyenv install -s 3.8.20
 pyenv install -s 3.9.1
 pyenv install -s 3.10.1
 pyenv install -s 3.11.1
-pyenv virtualenv 3.10.1
-pyenv shell 3.8.1 3.9.1 3.11.1
+pyenv install -s 3.12.1
+pyenv virtualenv 3.11.1
+pyenv shell 3.8.20 3.9.1 3.10.1 3.12.1
 pip install tox
 ```
 
