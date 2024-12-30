@@ -2,7 +2,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
 from pyfcm import FCMNotification
-from pyfcm.errors import FCMNotRegisteredError, FCMServerError
+from pyfcm.errors import FCMNotRegisteredError, FCMServerError, FCMSenderIdMismatchError
 
 from .settings import app_settings
 from .signals import device_updated
@@ -23,14 +23,7 @@ class FCMBackend(object):
                 "GOOGLE_SERVICE_ACCOUNT_INFO must specify a project_id."
             )
         # PyFCM supports loading from service file directly, OR passing in credentials.
-        # unfortunately we can't pass in the info to be loaded there, so for now
-        # I'm just adding the oauth client to this lib, loading the creds, then passing them in.
         push_service = FCMNotification(
-            # Annoyingly service_account_file and project_id are positional args,
-            # when really PyFCM should be checking for the existence of credentials first.
-            # See https://github.com/olucurious/PyFCM/issues/357
-            service_account_file=None,
-            project_id=project_id,
             credentials=credentials
         )
         # NOTE: In the firebase messaging V1 API (and thus PyFCM 2.x), the API response is simply a dictionary with one field, 'name',
@@ -48,16 +41,12 @@ class FCMBackend(object):
         except FCMNotRegisteredError as e:
             self.update_device_on_registration_error(device)
 
-        # SENDER_ID_MISMATCH - PyFCM should be able to parse the 403 specifically.
-        # See https://github.com/olucurious/PyFCM/pull/358
-        except FCMServerError as e:
-            if "Unexpected status code 403" in str(e):
-                self.update_device_on_registration_error(device)
-                raise ImproperlyConfigured(
-                    "The authenticated sender ID is different from the sender ID"
-                    " of the registration token."
-                )
-            raise e
+        except FCMSenderIdMismatchError:
+            self.update_device_on_registration_error(device)
+            raise ImproperlyConfigured(
+                "The authenticated sender ID is different from the sender ID"
+                " of the registration token."
+            )
 
         return result
 
