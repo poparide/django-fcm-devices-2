@@ -219,7 +219,9 @@ def test_send_notification_to_user_has_multiple_devices(mocker):
         active_device, notification_body="Test content", notification_title="Test title"
     )
     mocked_send_notification.assert_any_call(
-        second_active_device, notification_body="Test content", notification_title="Test title"
+        second_active_device,
+        notification_body="Test content",
+        notification_title="Test title",
     )
 
 

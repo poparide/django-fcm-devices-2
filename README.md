@@ -128,15 +128,17 @@ If you are on Mac OS X, it's recommended you use [brew](http://brew.sh/). After 
 $ brew install pyenv pyenv-virtualenv pyenv-virtualenvwrapper
 ```
 
+Follow the [directions to set up your shell environment for pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#b-set-up-your-shell-environment-for-pyenv).
+
 Then:
 
 ```
-pyenv install -s 3.6.10
-pyenv install -s 3.7.6
 pyenv install -s 3.8.1
 pyenv install -s 3.9.1
-pyenv virtualenv devices 3.8.1
-pyenv shell devices 3.6.10 3.7.6 3.9.1
+pyenv install -s 3.10.1
+pyenv install -s 3.11.1
+pyenv virtualenv 3.10.1
+pyenv shell 3.8.1 3.9.1 3.11.1
 pip install tox
 ```
 
