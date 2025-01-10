@@ -20,7 +20,7 @@ install_requires = [
     # and 1.5.x currently look good.
     # https://github.com/olucurious/PyFCM/issues/285
     "pyfcm>=2.0.7",
-    "django-konst>=2,<3",
+    "django-konst>=3",
 ]
 
 tests_require = [
