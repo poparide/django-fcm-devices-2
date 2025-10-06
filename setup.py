@@ -14,9 +14,10 @@ with open("README.md", "r") as fh:
 
 install_requires = [
     "django>=3,<4",
-    "pyfcm==2.0.8",
+    "pyfcm>=2.0.8,<=2.1.0",
     "django-konst>=2,<3",
     "google-auth>=2.22.0",  # for loading credentials.
+    "setuptools",  # for distutils patch in django 3.0, python 3.12+
 ]
 
 tests_require = [
