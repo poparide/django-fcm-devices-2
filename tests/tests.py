@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 from django.urls import reverse
@@ -9,7 +10,7 @@ from pyfcm.fcm import FCMNotification
 import pytest
 import responses
 from rest_framework.test import APIClient
-from django.conf import settings
+
 from fcm_devices import service
 from fcm_devices.api.drf.serializers import DeviceSerializer
 from fcm_devices.models import Device
@@ -23,7 +24,7 @@ def api_client():
 # The internal URL hit by PyFCM to send a message
 fcm_endpoint = f"{FCMNotification.FCM_END_POINT_BASE}/{settings.FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO['project_id']}/messages:send"
 # Oauth token refresh call
-mock_token_response ={
+mock_token_response = {
     "access_token": "notarealtoken",
 }
 # tests for service logic
@@ -36,7 +37,6 @@ success_response = {
     "results": [],
     "topic_message_id": None,
 }
-
 
 
 @pytest.mark.django_db
@@ -125,7 +125,7 @@ def test_send_notification(api_client):
         responses.Response(
             method="POST",
             url="https://oauth2.googleapis.com/token",
-            json=mock_token_response
+            json=mock_token_response,
         )
     )
     device = baker.make("fcm_devices.Device", active=True)
@@ -153,7 +153,7 @@ def test_send_notification_invalid_device_unregistered(api_client, mocker):
         responses.Response(
             method="POST",
             url="https://oauth2.googleapis.com/token",
-            json=mock_token_response
+            json=mock_token_response,
         )
     )
     device = baker.make("fcm_devices.Device", active=True)
@@ -187,7 +187,7 @@ def test_send_notification_invalid_device_mismatch(api_client, mocker):
         responses.Response(
             method="POST",
             url="https://oauth2.googleapis.com/token",
-            json=mock_token_response
+            json=mock_token_response,
         )
     )
     device = baker.make("fcm_devices.Device", active=True)
@@ -211,11 +211,15 @@ def test_send_notification_invalid_device_mismatch(api_client, mocker):
     assert device_updated_signal.called_with_args(sender=Device, device=device)
 
 
-
 @responses.activate
 @pytest.mark.django_db
 @override_settings(FCM_DEVICES_BACKEND_CLASS="fcm_devices.fcm.FCMBackend")
-@override_settings(FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO={**settings.FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO, "project_id": None})
+@override_settings(
+    FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO={
+        **settings.FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO,
+        "project_id": None,
+    }
+)
 def test_send_notification_config_error(api_client, mocker):
     responses.add(
         responses.Response(
@@ -229,7 +233,7 @@ def test_send_notification_config_error(api_client, mocker):
         responses.Response(
             method="POST",
             url="https://oauth2.googleapis.com/token",
-            json=mock_token_response
+            json=mock_token_response,
         )
     )
     device = baker.make("fcm_devices.Device", active=True)
@@ -241,9 +245,7 @@ def test_send_notification_config_error(api_client, mocker):
             device, notification_title="Test title", notification_body="Test content"
         )
 
-    assert e.value.args[0] == (
-        "GOOGLE_SERVICE_ACCOUNT_INFO must specify a project_id."
-    )
+    assert e.value.args[0] == ("GOOGLE_SERVICE_ACCOUNT_INFO must specify a project_id.")
 
     # device should not be deactivated; since it's a recoverable error we do not
     # need to purge the tokens, we just need to fix the config
@@ -362,13 +364,12 @@ def test_send_test_notification_action(client, mocker):
         responses.Response(
             method="POST",
             url="https://oauth2.googleapis.com/token",
-            json=mock_token_response
+            json=mock_token_response,
         )
     )
     device = baker.make(
         "fcm_devices.Device", user__is_staff=True, user__is_superuser=True
     )
-
 
     client.force_login(device.user)
 
