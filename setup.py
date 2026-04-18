@@ -13,7 +13,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 install_requires = [
-    "django>=3,<4",
+    "django>=3,<5",
     "pyfcm==2.0.6",
     "django-konst>=2,<3",
     "google-auth==2.22.0", # for loading credentials.
