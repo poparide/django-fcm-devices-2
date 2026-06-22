@@ -2,47 +2,73 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
 from pyfcm import FCMNotification
+from pyfcm.errors import FCMNotRegisteredError, FCMServerError
 
 from .settings import app_settings
 from .signals import device_updated
-
-
-# categorise common errors in terms of what we"ll do
-unrecoverable_errors = set(
-    ["MissingRegistration", "InvalidRegistration", "NotRegistered"]
-)
-configuration_errors = set(["MismatchSenderId"])
+from google.oauth2 import service_account
 
 
 class FCMBackend(object):
     """You can override this class to customise sending of notifications."""
 
     def send_notification(self, device, **kwargs):
-        push_service = FCMNotification(api_key=app_settings.API_KEY)
-        result = push_service.notify_single_device(
-            registration_id=device.token,
-            **kwargs,
+        credentials = service_account.Credentials.from_service_account_info(
+            app_settings.GOOGLE_SERVICE_ACCOUNT_INFO,
+            scopes=["https://www.googleapis.com/auth/firebase.messaging"]
         )
-        self.update_device_on_error(device, result)
+        project_id = getattr(credentials, 'project_id', None)
+        if not project_id:
+            raise ImproperlyConfigured(
+                "GOOGLE_SERVICE_ACCOUNT_INFO must specify a project_id."
+            )
+        # PyFCM supports loading from service file directly, OR passing in credentials.
+        # unfortunately we can't pass in the info to be loaded there, so for now
+        # I'm just adding the oauth client to this lib, loading the creds, then passing them in.
+        push_service = FCMNotification(
+            # Annoyingly service_account_file and project_id are positional args,
+            # when really PyFCM should be checking for the existence of credentials first.
+            # See https://github.com/olucurious/PyFCM/issues/357
+            service_account_file=None,
+            project_id=project_id,
+            credentials=credentials
+        )
+        # NOTE: In the firebase messaging V1 API (and thus PyFCM 2.x), the API response is simply a dictionary with one field, 'name',
+        # which is the identifier of the message sent, in the format of projects/*/messages/{message_id}.
+        # Errors are raised and there is no longer a 'failure' key in the response to parse.
+        result = None
+        try:
+            result = push_service.notify(
+                fcm_token=device.token,
+                **kwargs,
+            )
+
+        # missing, unregistered, and invalid. see
+        # https://firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
+        except FCMNotRegisteredError as e:
+            self.update_device_on_registration_error(device)
+
+        # SENDER_ID_MISMATCH - PyFCM should be able to parse the 403 specifically.
+        # See https://github.com/olucurious/PyFCM/pull/358
+        except FCMServerError as e:
+            if "Unexpected status code 403" in str(e):
+                self.update_device_on_registration_error(device)
+                raise ImproperlyConfigured(
+                    "The authenticated sender ID is different from the sender ID"
+                    " of the registration token."
+                )
+            raise e
+
         return result
 
-    def update_device_on_error(self, device, result):
+    def update_device_on_registration_error(self, device):
         """
         If a device fails to be sent a notification due to an unrecoverable
         issue we want to ensure we don't try again.
-
-        See `unrecoverable_errors` for which we act upon.
         """
-        if result["failure"] > 0:
-            if result["results"][0]["error"] in unrecoverable_errors:
-                device.active = False
-                device.save(update_fields=("active", "updated_at"))
-                device_updated.send(sender=device.__class__, device=device)
-            elif result["results"][0]["error"] in configuration_errors:
-                raise ImproperlyConfigured(
-                    f"FCM configuration problem sending to device {device.id}: "
-                    f"{result['results'][0]['error']}"
-                )
+        device.active = False
+        device.save(update_fields=("active", "updated_at"))
+        device_updated.send(sender=device.__class__, device=device)
 
 
 class ConsoleFCMBackend(FCMBackend):
@@ -50,8 +76,7 @@ class ConsoleFCMBackend(FCMBackend):
 
     def send_notification(self, device, **kwargs):
         print(f"Push to {device}\nPyFCM kwargs: {kwargs}\n")
-        # this is a partial response, but the part our sending code will be looking for
-        return {"success": 1, "failure": 0}
+        return {"name": "my/message/resource/:foobarbaz123"}
 
 
 def get_fcm_backend():

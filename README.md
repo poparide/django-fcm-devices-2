@@ -29,13 +29,13 @@ pip install django-fcm-devices
 
 ### Configure ###
 
-You need to configure your FCM API key by adding to your settings:
+You need to configure your FCM service account info by adding to your settings:
 
-- `FCM_DEVICES_API_KEY` your FCM API key.
+- `FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO` your service account info, from which credentials are loaded.
 
 You can optionally subclass the `FCMBackend` to add your own behaviour using the following setting and dot notation:
 
-- `FCM_DEVICES_BACKEND_CLASS` 
+- `FCM_DEVICES_BACKEND_CLASS`
 
 
 ### Use ###
@@ -97,37 +97,8 @@ send_notification_to_user(User.objects.get(id=123), message_title="An important 
 
 These functions have the added bonus of processing sending errors and deactivating devices, so they should generally be used. As kwargs, they take anything that PyFCM supports and are essentially passed through.
 
-But what about bulk and data notifications, you ask? Well, easy does it tiger. We'll likely get there (or send along a PR?!) but in the meantime you can easily do this yourself by directly using [PyFCM](https://github.com/olucurious/PyFCM):
+*But what about bulk and data notifications, you ask?* Well, easy does it tiger. Sending messages to multiple tokens is not supported in [Google's new messaging API](https://firebase.google.com/support/faq?authuser=0&_gl=1*ldgs3m*_up*MQ..*_ga*ODYyNzMzOTQ5LjE3MjQyNTcxMjA.*_ga_CW55HF8NVT*MTcyNDI1NzExOS4xLjAuMTcyNDI1NzExOS4wLjAuMA..#fcm-depr-multiple-tokens). Consider looking into [Topic Messaging](https://firebase.google.com/docs/cloud-messaging/android/topic-messaging) or [workarounds in PyFCM directly](https://github.com/olucurious/PyFCM/issues/338).
 
-```python
-from pyfcm import FCMNotification
-
-from fcm_devices.models import Device
-from fcm_devices.settings import app_settings
-
-push_service = FCMNotification(api_key=app_settings.API_KEY)
-data_message = {
-    "Nick": "Mario",
-    "body": "great match!",
-    "Room": "PortugalVSDenmark"
-}
-
-device = Device.objects.get(user_id=123)  # get the device for the user you want to message
-
-# To multiple devices
-result = push_service.notify_multiple_devices(
-    registration_ids=[device.token],
-    message_body="Hullo there",
-    data_message=data_message
-)
-
-# To a single device
-result = push_service.notify_single_device(
-    registration_id=device.token,
-    message_body="Hullo there",
-    data_message=data_message
-)
-```
 
 #### The life of an FCM token ####
 
