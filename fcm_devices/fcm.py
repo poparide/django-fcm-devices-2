@@ -1,12 +1,44 @@
+import json
+
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
 from pyfcm import FCMNotification
-from pyfcm.errors import FCMNotRegisteredError, FCMServerError
+from pyfcm.errors import FCMNotRegisteredError, FCMServerError, InvalidDataError
 
 from .settings import app_settings
 from .signals import device_updated
 from google.oauth2 import service_account
+
+
+# APNs rejects a dead device token with a 410, which FCM relays to us as a 400
+# INVALID_ARGUMENT rather than the 404 UNREGISTERED it uses for tokens it has
+# expired itself. PyFCM maps HTTP status codes rather than FCM error codes, so
+# a dead iOS token surfaces as InvalidDataError instead of the
+# FCMNotRegisteredError that would retire it.
+APNS_UNREGISTERED_STATUS_CODE = 410
+
+
+def is_apns_unregistered_error(error):
+    """
+    Indicate whether an InvalidDataError is APNs reporting a dead token.
+
+    The exception carries the raw FCM response body, which nests the
+    originating APNs status under `error.details`.
+    """
+    try:
+        details = json.loads(str(error))["error"]["details"]
+    except (KeyError, TypeError, ValueError):
+        return False
+
+    if not isinstance(details, list):
+        return False
+
+    return any(
+        isinstance(detail, dict)
+        and detail.get("statusCode") == APNS_UNREGISTERED_STATUS_CODE
+        for detail in details
+    )
 
 
 class FCMBackend(object):
@@ -46,6 +78,13 @@ class FCMBackend(object):
         # missing, unregistered, and invalid. see
         # https://firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
         except FCMNotRegisteredError as e:
+            self.update_device_on_registration_error(device)
+
+        # The token is dead, but it was APNs rather than FCM that said so, so it
+        # reaches us as a 400 rather than the 404 handled above.
+        except InvalidDataError as e:
+            if not is_apns_unregistered_error(e):
+                raise
             self.update_device_on_registration_error(device)
 
         # SENDER_ID_MISMATCH - PyFCM should be able to parse the 403 specifically.
