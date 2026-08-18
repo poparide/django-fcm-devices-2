@@ -5,6 +5,7 @@ from django.test import override_settings
 from django.urls import reverse
 
 from model_bakery import baker
+from pyfcm.errors import InvalidDataError
 from pyfcm.fcm import FCMNotification
 import pytest
 import responses
@@ -12,6 +13,7 @@ from rest_framework.test import APIClient
 
 from fcm_devices import service
 from fcm_devices.api.drf.serializers import DeviceSerializer
+from fcm_devices.fcm import FCMBackend, is_apns_unregistered_error
 from fcm_devices.models import Device
 
 
@@ -199,6 +201,106 @@ def test_send_notification_config_error(api_client, mocker):
 
     # device should not be deactivated, as if it is a recoverable error we do not
     # need to purge the tokens, we just need to fix the config
+    device.refresh_from_db()
+    assert device.active
+    assert not device_updated_signal.called
+
+
+# tests for APNs token rejections, which reach us as a 400 rather than the 404
+# that PyFCM turns into FCMNotRegisteredError
+
+apns_unregistered_body = json.dumps(
+    {
+        "error": {
+            "code": 400,
+            "message": "APNs device token is disabled.",
+            "status": "INVALID_ARGUMENT",
+            "details": [
+                {
+                    "@type": "type.googleapis.com/google.firebase.fcm.v1.FcmError",
+                    "errorCode": "INVALID_ARGUMENT",
+                },
+                {
+                    "@type": "type.googleapis.com/google.firebase.fcm.v1.ApnsError",
+                    "statusCode": 410,
+                    "reason": "Unregistered",
+                },
+            ],
+        }
+    }
+)
+
+
+malformed_payload_body = json.dumps(
+    {
+        "error": {
+            "code": 400,
+            "message": "Request contains an invalid argument.",
+            "status": "INVALID_ARGUMENT",
+        }
+    }
+)
+
+
+@pytest.fixture()
+def mock_notify(mocker):
+    """
+    Stub out credential loading and the FCM client, yielding notify().
+
+    Lets tests drive the backend purely by what PyFCM raises.
+    """
+    mocker.patch(
+        "fcm_devices.fcm.service_account.Credentials.from_service_account_info",
+        return_value=mocker.Mock(project_id="a-project"),
+    )
+    push_service = mocker.patch("fcm_devices.fcm.FCMNotification")
+    return push_service.return_value.notify
+
+
+def test_is_apns_unregistered_error_apns_410():
+    assert is_apns_unregistered_error(InvalidDataError(apns_unregistered_body))
+
+
+def test_is_apns_unregistered_error_without_details():
+    assert not is_apns_unregistered_error(InvalidDataError(malformed_payload_body))
+
+
+def test_is_apns_unregistered_error_non_json():
+    # PyFCM also raises InvalidDataError wrapping arbitrary exceptions
+    assert not is_apns_unregistered_error(InvalidDataError(ValueError("nope")))
+
+
+def test_is_apns_unregistered_error_unexpected_details_shape():
+    body = json.dumps({"error": {"details": {"statusCode": 410}}})
+    assert not is_apns_unregistered_error(InvalidDataError(body))
+
+
+@pytest.mark.django_db
+def test_send_notification_apns_unregistered(mock_notify, mocker):
+    mock_notify.side_effect = InvalidDataError(apns_unregistered_body)
+    device = baker.make("fcm_devices.Device", active=True)
+    initial_updated_at = device.updated_at
+    device_updated_signal = mocker.patch("fcm_devices.fcm.device_updated.send")
+
+    result = FCMBackend().send_notification(device, notification_body="Test content")
+
+    assert result is None
+    device.refresh_from_db()
+    assert not device.active
+    assert device.updated_at > initial_updated_at
+    device_updated_signal.assert_called_once_with(sender=Device, device=device)
+
+
+@pytest.mark.django_db
+def test_send_notification_invalid_data_not_apns(mock_notify, mocker):
+    """A genuinely malformed payload is our bug to fix, so it must still raise."""
+    mock_notify.side_effect = InvalidDataError(malformed_payload_body)
+    device = baker.make("fcm_devices.Device", active=True)
+    device_updated_signal = mocker.patch("fcm_devices.fcm.device_updated.send")
+
+    with pytest.raises(InvalidDataError):
+        FCMBackend().send_notification(device, notification_body="Test content")
+
     device.refresh_from_db()
     assert device.active
     assert not device_updated_signal.called
