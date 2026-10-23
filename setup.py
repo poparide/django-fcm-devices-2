@@ -13,18 +13,17 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 install_requires = [
-    "django>=3,<4",
-    "pyfcm>=2.0.8,<=2.1.0",
-    "django-konst>=2,<3",
+    "django>=3.2,<6",
+    "pyfcm>=2.0.8,<3",
+    "django-konst>=3,<4",
     "google-auth>=2.22.0",  # for loading credentials.
-    "setuptools",  # for distutils patch in django 3.0, python 3.12+
 ]
 
 tests_require = [
-    "pytest>=4,<5",
-    "pytest-django>=3,<4",
-    "pytest-mock>=1,<2",
-    "model_mommy>=1,<2",
+    "pytest>=7",
+    "pytest-django>=4.5",
+    "pytest-mock>=3",
+    "model_bakery>=1.3.3",
 ]
 
 setup(
@@ -46,8 +45,18 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Framework :: Django",
+        "Framework :: Django :: 3.2",
+        "Framework :: Django :: 4.2",
+        "Framework :: Django :: 5.2",
     ],
+    python_requires=">=3.8",
     install_requires=install_requires,
     test_suite="runtests.runtests",
     tests_require=tests_require,

@@ -1,6 +1,7 @@
 import json
 
 from django.conf import settings
+from django.contrib.messages import get_messages
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 from django.urls import reverse
@@ -29,14 +30,7 @@ mock_token_response = {
 }
 # tests for service logic
 
-success_response = {
-    "multicast_ids": [],
-    "success": 1,
-    "failure": 0,
-    "canonical_ids": 0,
-    "results": [],
-    "topic_message_id": None,
-}
+success_response = {"name": "projects/foobarbaz123/messages/0:1500415314455276"}
 
 
 @pytest.mark.django_db
@@ -58,7 +52,7 @@ def test_update_or_create_device_create(mocker):
     )
     assert Device.objects.count() == 1
     assert created
-    assert device_created_signal.called_with_args(sender=Device, device=device)
+    device_created_signal.assert_called_once_with(sender=Device, device=device)
     assert not device_updated_signal.called
 
 
@@ -91,7 +85,7 @@ def test_update_or_create_device_update(mocker):
     assert not device.active
     assert not created
     assert device.updated_at > initial_updated_at
-    assert device_updated_signal.called_with_args(sender=Device, device=device)
+    device_updated_signal.assert_called_once_with(sender=Device, device=device)
     assert not device_created_signal.called
 
 
@@ -116,7 +110,6 @@ def test_send_notification(api_client):
         responses.Response(
             method="POST",
             url=fcm_endpoint,
-            match_querystring=False,
             json=success_response,
             status=200,
         )
@@ -145,7 +138,6 @@ def test_send_notification_invalid_device_unregistered(api_client, mocker):
         responses.Response(
             method="POST",
             url=fcm_endpoint,
-            match_querystring=False,
             status=404,
         )
     )
@@ -168,7 +160,7 @@ def test_send_notification_invalid_device_unregistered(api_client, mocker):
     device.refresh_from_db()
     assert not device.active
     assert device.updated_at > initial_updated_at
-    assert device_updated_signal.called_with_args(sender=Device, device=device)
+    device_updated_signal.assert_called_once_with(sender=Device, device=device)
 
 
 @responses.activate
@@ -179,7 +171,6 @@ def test_send_notification_invalid_device_mismatch(api_client, mocker):
         responses.Response(
             method="POST",
             url=fcm_endpoint,
-            match_querystring=False,
             status=403,
         )
     )
@@ -208,7 +199,7 @@ def test_send_notification_invalid_device_mismatch(api_client, mocker):
     device.refresh_from_db()
     assert not device.active
     assert device.updated_at > initial_updated_at
-    assert device_updated_signal.called_with_args(sender=Device, device=device)
+    device_updated_signal.assert_called_once_with(sender=Device, device=device)
 
 
 @responses.activate
@@ -225,7 +216,6 @@ def test_send_notification_config_error(api_client, mocker):
         responses.Response(
             method="POST",
             url=fcm_endpoint,
-            match_querystring=False,
             status=403,
         )
     )
@@ -355,7 +345,6 @@ def test_send_test_notification_action(client, mocker):
         responses.Response(
             method="POST",
             url=fcm_endpoint,
-            match_querystring=False,
             json=success_response,
             status=200,
         )
@@ -386,3 +375,56 @@ def test_send_test_notification_action(client, mocker):
     assert len(responses.calls) == 2
     assert response.status_code == 302
     assert json.loads(responses.calls[1].response.text) == success_response
+
+
+@pytest.mark.django_db
+@responses.activate
+@override_settings(FCM_DEVICES_BACKEND_CLASS="fcm_devices.fcm.FCMBackend")
+def test_send_test_notification_action_errors(client):
+    responses.add(
+        responses.Response(
+            method="POST",
+            url=fcm_endpoint,
+            status=404,
+        )
+    )
+    responses.add(
+        responses.Response(
+            method="POST",
+            url=fcm_endpoint,
+            status=403,
+        )
+    )
+    responses.add(
+        responses.Response(
+            method="POST",
+            url="https://oauth2.googleapis.com/token",
+            json=mock_token_response,
+        )
+    )
+    admin_user = baker.make("auth.User", is_staff=True, is_superuser=True)
+    unregistered = baker.make("fcm_devices.Device", active=True)
+    mismatched = baker.make("fcm_devices.Device", active=True)
+
+    client.force_login(admin_user)
+
+    response = client.post(
+        reverse("admin:fcm_devices_device_changelist"),
+        data={
+            "action": "send_notification",
+            "select_across": "0",
+            "index": "0",
+            "_selected_action": [unregistered.id, mismatched.id],
+        },
+    )
+
+    assert response.status_code == 302
+    messages = [str(m) for m in get_messages(response.wsgi_request)]
+    assert messages == [
+        "2 notifications hit errors: "
+        "{'FCMNotRegisteredError': 1, 'ImproperlyConfigured': 1}"
+    ]
+    unregistered.refresh_from_db()
+    mismatched.refresh_from_db()
+    assert not unregistered.active
+    assert not mismatched.active

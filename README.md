@@ -138,8 +138,9 @@ pyenv install -s 3.9.1
 pyenv install -s 3.10.1
 pyenv install -s 3.11.1
 pyenv install -s 3.12.1
+pyenv install -s 3.13.0
 pyenv virtualenv 3.11.1
-pyenv shell 3.8.20 3.9.1 3.10.1 3.12.1
+pyenv shell 3.8.20 3.9.1 3.10.1 3.11.1 3.12.1 3.13.0
 pip install tox
 ```
 
