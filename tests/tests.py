@@ -1,6 +1,5 @@
 import json
 
-from django.conf import settings
 from django.contrib.messages import get_messages
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
@@ -16,6 +15,8 @@ from fcm_devices import service
 from fcm_devices.api.drf.serializers import DeviceSerializer
 from fcm_devices.models import Device
 
+from .conftest import PROJECT_ID
+
 
 @pytest.fixture()
 def api_client():
@@ -23,7 +24,7 @@ def api_client():
 
 
 # The internal URL hit by PyFCM to send a message
-fcm_endpoint = f"{FCMNotification.FCM_END_POINT_BASE}/{settings.FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO['project_id']}/messages:send"
+fcm_endpoint = f"{FCMNotification.FCM_END_POINT_BASE}/{PROJECT_ID}/messages:send"
 # Oauth token refresh call
 mock_token_response = {
     "access_token": "notarealtoken",
@@ -205,13 +206,11 @@ def test_send_notification_invalid_device_mismatch(api_client, mocker):
 @responses.activate
 @pytest.mark.django_db
 @override_settings(FCM_DEVICES_BACKEND_CLASS="fcm_devices.fcm.FCMBackend")
-@override_settings(
-    FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO={
+def test_send_notification_config_error(api_client, mocker, settings):
+    settings.FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO = {
         **settings.FCM_DEVICES_GOOGLE_SERVICE_ACCOUNT_INFO,
         "project_id": None,
     }
-)
-def test_send_notification_config_error(api_client, mocker):
     responses.add(
         responses.Response(
             method="POST",
